@@ -12,13 +12,18 @@ exports.seed = async function(knex) {
   }
 
   console.log('🚀 開発用大量データを生成中...');
+  
+  // 一時的に無効化 - 基本データのみでテスト
+  console.log('⚠️ 開発用大量データ生成は一時的に無効化されています');
+  console.log('💡 基本データのみを使用してテストしてください');
+  return;
 
   try {
     await generateBulkData(knex, {
-      userCount: 100,
-      guildCount: 10,
-      channelsPerGuild: 15,
-      messagesPerChannel: 50
+      userCount: 20,
+      guildCount: 3,
+      channelsPerGuild: 5,
+      messagesPerChannel: 10
     });
 
     console.log('✅ 開発用大量データ生成完了');

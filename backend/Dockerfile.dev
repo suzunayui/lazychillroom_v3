@@ -1,0 +1,49 @@
+# ====================================
+# LazyChillRoom v3 - Backend Dockerfile (Development)
+# ====================================
+
+FROM docker.io/node:22-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# システムの依存関係をインストール
+RUN apk add --no-cache \
+    curl \
+    bash \
+    git \
+    python3 \
+    make \
+    g++
+
+# package.jsonとpackage-lock.jsonをコピー
+COPY package*.json ./
+
+# 依存関係をインストール（package-lock.jsonがない場合は生成される）
+RUN npm install
+
+# ソースコードをコピー
+COPY . .
+
+# アップロードディレクトリを作成
+RUN mkdir -p uploads
+
+# 非特権ユーザーを作成
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# ディレクトリの所有権を変更
+RUN chown -R nodejs:nodejs /app
+
+# 非特権ユーザーに切り替え
+USER nodejs
+
+# ポートを公開
+EXPOSE 3000
+
+# ヘルスチェック用のエンドポイント
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# 開発サーバーを起動
+CMD ["npm", "run", "dev"]

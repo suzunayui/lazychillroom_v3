@@ -1,0 +1,46 @@
+# ====================================
+# LazyChillRoom v3 - Frontend Dockerfile (Development)
+# ====================================
+
+FROM docker.io/node:22-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# システムの依存関係をインストール
+RUN apk add --no-cache \
+    curl \
+    bash \
+    git
+
+# package.jsonとpackage-lock.jsonをコピー
+COPY package*.json ./
+
+# 依存関係をインストール（package-lock.jsonがない場合は生成される）
+RUN npm install
+
+# ソースコードをコピー
+COPY . .
+
+# 非特権ユーザーを作成
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# ディレクトリの所有権を変更
+RUN chown -R nodejs:nodejs /app
+
+# 非特権ユーザーに切り替え
+USER nodejs
+
+# SvelteKitの準備
+RUN npm run prepare
+
+# ポートを公開
+EXPOSE 5173
+
+# ヘルスチェック用
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5173/ || exit 1
+
+# 開発サーバーを起動（すべてのインターフェースでリッスン）
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

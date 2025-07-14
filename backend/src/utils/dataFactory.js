@@ -8,10 +8,10 @@ const createUser = async (overrides = {}) => {
   const hashedPassword = await bcrypt.hash('password123', 10);
   
   return {
-    username: faker.internet.username(),
+    username: faker.internet.userName(),
     email: faker.internet.email(),
     password_hash: hashedPassword,
-    avatar_url: faker.image.avatar(),
+    avatar_url: faker.image.avatarGitHub(),
     status: faker.helpers.arrayElement(['online', 'away', 'busy', 'offline']),
     ...overrides
   };
@@ -25,7 +25,7 @@ const createGuild = (owner_id, overrides = {}) => {
     name: faker.company.name(),
     description: faker.lorem.sentence(),
     owner_id,
-    icon_url: faker.image.url({ width: 256, height: 256 }),
+    icon_url: faker.image.urlLoremFlickr({ width: 256, height: 256 }),
     member_count: faker.number.int({ min: 1, max: 100 }),
     is_personal_server: false,
     ...overrides
@@ -63,7 +63,7 @@ const createMessage = (channel_id, user_id, overrides = {}) => {
   let file_size = null;
 
   if (type === 'image') {
-    file_url = faker.image.url();
+    file_url = faker.image.urlLoremFlickr();
     file_name = `image_${faker.string.alphanumeric(8)}.jpg`;
     file_size = faker.number.int({ min: 50000, max: 2000000 });
     content = `画像を共有しました: ${file_name}`;
@@ -102,16 +102,30 @@ const generateBulkData = async (knex, options = {}) => {
   console.log('🏭 ファクトリーで大量データを生成中...');
 
   try {
-    // 既存のファクトリー生成データを削除
-    await knex.raw('TRUNCATE TABLE messages, channels, channel_categories, guild_members, guilds RESTART IDENTITY CASCADE');
+    // 既存のファクトリー生成データを削除（基本データは保持）
+    await knex.raw('DELETE FROM messages WHERE user_id > 10');
+    await knex.raw('DELETE FROM channels WHERE guild_id IN (SELECT id FROM guilds WHERE id > 3)');
+    await knex.raw('DELETE FROM channel_categories WHERE guild_id IN (SELECT id FROM guilds WHERE id > 3)');
+    await knex.raw('DELETE FROM guild_members WHERE guild_id IN (SELECT id FROM guilds WHERE id > 3)');
+    await knex.raw('DELETE FROM guilds WHERE id > 3');
+    await knex.raw('DELETE FROM users WHERE id > 10');
+
+    // 既存ユーザーの最大IDを取得
+    const maxUserResult = await knex('users').max('id as max_id').first();
+    const startUserId = (maxUserResult.max_id || 0) + 1;
 
     // ユーザー生成
     console.log(`👥 ${userCount}人のユーザーを生成中...`);
     const users = [];
     for (let i = 0; i < userCount; i++) {
-      users.push(await createUser());
+      const user = await createUser();
+      users.push(user);
     }
     const insertedUsers = await knex('users').insert(users).returning('id');
+
+    // 既存ギルドの最大IDを取得
+    const maxGuildResult = await knex('guilds').max('id as max_id').first();
+    const startGuildId = (maxGuildResult.max_id || 0) + 1;
 
     // ギルド生成
     console.log(`🏰 ${guildCount}個のギルドを生成中...`);

@@ -86,11 +86,11 @@ exports.seed = async function(knex) {
     // 絵文字データ
     console.log('😀 絵文字を作成中...');
     await knex('emojis').insert([
-      { id: 1, guild_id: null, name: '👍', emoji_unicode: '👍' },
-      { id: 2, guild_id: null, name: '❤️', emoji_unicode: '❤️' },
-      { id: 3, guild_id: null, name: '😂', emoji_unicode: '😂' },
-      { id: 4, guild_id: null, name: '😮', emoji_unicode: '😮' },
-      { id: 5, guild_id: null, name: '😢', emoji_unicode: '😢' },
+      { id: 1, guild_id: null, name: '👍', image_url: 'https://twemoji.maxcdn.com/v/latest/72x72/1f44d.png' },
+      { id: 2, guild_id: null, name: '❤️', image_url: 'https://twemoji.maxcdn.com/v/latest/72x72/2764.png' },
+      { id: 3, guild_id: null, name: '😂', image_url: 'https://twemoji.maxcdn.com/v/latest/72x72/1f602.png' },
+      { id: 4, guild_id: null, name: '😮', image_url: 'https://twemoji.maxcdn.com/v/latest/72x72/1f62e.png' },
+      { id: 5, guild_id: null, name: '😢', image_url: 'https://twemoji.maxcdn.com/v/latest/72x72/1f622.png' },
       { id: 6, guild_id: 1, name: 'custom_emoji', image_url: 'https://picsum.photos/32/32?random=100', created_by: 2 }
     ]);
 

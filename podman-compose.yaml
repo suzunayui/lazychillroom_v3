@@ -1,0 +1,198 @@
+version: '3.8'
+
+# ====================================
+# LazyChillRoom v3 - Podman Compose
+# ====================================
+
+services:
+  # ====================================
+  # PostgreSQL Database
+  # ====================================
+  postgres:
+    image: docker.io/postgres:15-alpine
+    container_name: lazychillroom_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lazychillroom_dev
+      POSTGRES_USER: lazychillroom_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql:/docker-entrypoint-initdb.d
+    networks:
+      - lazychillroom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lazychillroom_user -d lazychillroom_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ====================================
+  # Redis Cache & Session Store
+  # ====================================
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: lazychillroom_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - lazychillroom_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ====================================
+  # Backend API Server (Development)
+  # ====================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: lazychillroom_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: lazychillroom_dev
+      DB_USER: lazychillroom_user
+      DB_PASSWORD: secure_password
+      
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password
+      
+      # JWT Configuration
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-this-too
+      
+      # Socket.IO Configuration
+      SOCKET_IO_CORS_ORIGIN: "http://localhost:5173"
+      
+      # File Upload Configuration
+      UPLOAD_MAX_SIZE: 50MB
+      UPLOAD_ALLOWED_TYPES: "image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain"
+      
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lazychillroom_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ====================================
+  # Frontend (Development)
+  # ====================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: lazychillroom_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      
+      # API Configuration
+      VITE_API_URL: http://localhost:3000
+      VITE_WS_URL: ws://localhost:3000
+      
+      # Public Configuration
+      PUBLIC_APP_NAME: "LazyChillRoom v3"
+      PUBLIC_APP_VERSION: "3.0.0"
+      
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - lazychillroom_network
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+
+  # ====================================
+  # pgAdmin (Database Management)
+  # ====================================
+  pgadmin:
+    image: docker.io/dpage/pgadmin4:9.5
+    container_name: lazychillroom_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lazychillroom.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - lazychillroom_network
+
+  # ====================================
+  # Redis Commander (Redis Management)
+  # ====================================
+  redis-commander:
+    image: docker.io/rediscommander/redis-commander:latest
+    container_name: lazychillroom_redis_commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis_password
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - lazychillroom_network
+
+# ====================================
+# Named Volumes
+# ====================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  backend_node_modules:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+# ====================================
+# Networks
+# ====================================
+networks:
+  lazychillroom_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
